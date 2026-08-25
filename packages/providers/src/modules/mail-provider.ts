@@ -1,14 +1,14 @@
-export interface EmailPayload {
-    to: string;
-    subject: string;
-    body: string;
-}
+import { EmailPayload } from "@project/shared-types";
+import { INotificationProvider, NormalizeResponse } from "../interfaces/notification";
 
-export class EmailProvider {
-    async send(payload: EmailPayload) {
+
+
+export class EmailProvider implements INotificationProvider<"EMAIL"> {
+    channel = "EMAIL" as const;
+    async send(payload: EmailPayload): Promise<NormalizeResponse> {
         console.log('EMAIL DISPATECHED BY THE WORKER');
         console.log(`payload ${payload}`)
-        return { success: true };
+        return { success: true, providerMessageId: "123", rawResponse: "" };
     }
 }
 

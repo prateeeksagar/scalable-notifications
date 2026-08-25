@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "main": "./src/index.ts",
     "types": "./src/index.ts",
+    "type": "module",
     "exports": {
         ".": {
             "types": "./src/index.ts",
@@ -11,5 +12,8 @@
     },
     "scripts": {
         "build": "tsc"
+    },
+    "dependencies": {
+        "@project/shared-types": "workspace:*"
     }
 }

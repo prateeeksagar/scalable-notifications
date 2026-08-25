@@ -2,16 +2,16 @@ import 'dotenv/config';
 import { NOTIFICATION_QUEUE_NAME, Worker, connection } from "@project/broker";
 import { db, notifications } from "@project/db";
 import { eq } from "drizzle-orm";
-import { emailProvider } from '@project/providers'
+import { ProviderFactory } from '@project/providers'
 
 const worker = new Worker(NOTIFICATION_QUEUE_NAME, async (job) => {
     const { notificationId, channel, payload } = job.data;
 
     console.log(`processing job ${job.id} for ${notificationId}`);
     try {
-        if (channel == "EMAIL") {
-            await emailProvider.send(payload);
-        }
+        const provider = ProviderFactory.getProvider(channel)
+        await provider.send(payload);
+
 
         // update DB for 'SENT'
         await db.update(notifications).set({ status: 'SENT', updatedAt: new Date() }).where(eq(notifications.id, notificationId));

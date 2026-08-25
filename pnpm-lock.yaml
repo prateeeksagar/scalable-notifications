@@ -289,7 +289,11 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
 
-  packages/providers: {}
+  packages/providers:
+    dependencies:
+      '@project/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
 
   packages/shared-types: {}
 
