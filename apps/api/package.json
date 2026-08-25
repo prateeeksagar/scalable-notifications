@@ -1,0 +1,19 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx --watch src/index.ts"
+  },
+  "dependencies": {
+    "@project/db": "workspace:*",
+    "@project/broker": "workspace:*",
+    "fastify": "^5.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.23.12"
+  }
+}

@@ -1,0 +1,29 @@
+{
+    "name": "@project/db",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "default": "./src/index.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "db:generate": "drizzle-kit generate",
+        "db:migrate": "drizzle-kit migrate",
+        "db:push": "drizzle-kit push",
+        "db:studio": "drizzle-kit studio"
+    },
+    "dependencies": {
+        "dotenv": "^17.4.2",
+        "drizzle-orm": "^0.45.2",
+        "postgres": "^3.4.9"
+    },
+    "devDependencies": {
+        "@types/node": "^26.2.0",
+        "drizzle-kit": "^0.31.10"
+    }
+}

@@ -1,0 +1,21 @@
+{
+    "name": "@project/broker",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": {
+            "types": "./src/index.ts",
+            "default": "./src/index.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc"
+    },
+    "dependencies": {
+        "bullmq": "^6.2.0",
+        "dotenv": "^17.4.2",
+        "ioredis": "^6.0.0"
+    }
+}
