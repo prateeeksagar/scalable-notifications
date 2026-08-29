@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { CreateNotificationInput, notificationService } from "../services/notification-service";
+import { notificationService } from "../services/notification-service";
+import { SendNotificationSchema } from '@project/shared-types';
 
 export async function getNotificationHandler(request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -19,8 +20,18 @@ export async function getNotificationHandler(request: FastifyRequest, reply: Fas
 
 export async function sendNotificationHandler(request: FastifyRequest, reply: FastifyReply) {
     try {
-        const body = request.body as CreateNotificationInput;
-        const result = await notificationService.sendNotification(body);
+
+        const parseResult = SendNotificationSchema.safeParse(request.body);
+        if (!parseResult.success) {
+            return reply.status(400).send({
+                success: false,
+                message: "Validation failed",
+                errors: parseResult.error.issues
+            })
+        }
+
+
+        const result = await notificationService.sendNotification(parseResult.data);
 
         // 202 for accepted
         return reply.status(202).send({

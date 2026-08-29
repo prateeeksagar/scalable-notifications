@@ -1,14 +1,8 @@
 import { db, notifications } from "@project/db";
 import { notificationQueue } from '@project/broker'
+import { NotificationRequest } from "@project/shared-types";
 
-export interface CreateNotificationInput {
-    channel: "EMAIL" | "SMS";
-    payload: {
-        to: string;
-        subject: string;
-        body: string;
-    }
-}
+
 
 export class NotificationService {
     async getNotification() {
@@ -19,7 +13,7 @@ export class NotificationService {
         }
     }
 
-    async sendNotification(input: CreateNotificationInput) {
+    async sendNotification(input: NotificationRequest) {
         try {
             // 1. saved in db with initial status 'QUEUED'
             const [saved] = await db.insert(notifications).values({

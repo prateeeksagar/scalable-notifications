@@ -10,6 +10,7 @@
   "dependencies": {
     "@project/db": "workspace:*",
     "@project/broker": "workspace:*",
+    "@project/shared-types": "workspace:*",
     "fastify": "^5.12.1"
   },
   "devDependencies": {
