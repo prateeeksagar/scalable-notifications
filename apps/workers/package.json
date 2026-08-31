@@ -12,9 +12,11 @@
     "@project/db": "workspace:*",
     "@project/providers": "workspace:*",
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "mustache": "^4.2.0"
   },
   "devDependencies": {
+    "@types/mustache": "^4.2.6",
     "@types/node": "^26.2.0",
     "tsx": "^4.23.12"
   }

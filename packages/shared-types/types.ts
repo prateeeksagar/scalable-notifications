@@ -2,27 +2,39 @@ import { z } from 'zod';
 
 export const EmailPayloadSchema = z.object({
     to: z.email('Invalid email format'),
-    subject: z.string().min(1, 'Subject can not be empty'),
-    body: z.string().min(1, 'Body can not be empty'),
-    from: z.email().optional()
+    subject: z.string().optional(),
+    body: z.string().optional(),
+    from: z.email().optional(),
+    templateId: z.string().optional(),
+    variables: z.record(z.string(), z.any()).optional()
+}).refine(data => data.body || data.templateId, {
+    message: "Either 'body' or templateId' must be provided"
 })
 
 export const SmsPayloadSchema = z.object({
     to: z.string().min(5, 'Phone must be atleast 5 digits'),
-    body: z.string().min(1, 'SMS message body cannot be empty')
+    body: z.string().min(1, 'SMS message body cannot be empty'),
+    templateId: z.string().optional(),
+    variables: z.record(z.string(), z.any()).optional(),
+}).refine(data => data.body || data.templateId, {
+    message: "Either 'body' or templateId' must be provided"
 })
 
 export const InAppPayloadScheme = z.object({
     userId: z.string().min(1, 'User Id is required'),
-    title: z.string().min(1, 'Title cannot be empty'),
-    body: z.string().min(1, 'body cannot be empty'),
-    actionUrl: z.url('Action URL must be in valid URL')
+    title: z.string().min(1, 'Title cannot be empty').optional(),
+    body: z.string().min(1, 'body cannot be empty').optional(),
+    actionUrl: z.url('Action URL must be in valid URL').optional(),
+    templateId: z.string().optional(),
+    variables: z.record(z.string(), z.any()).optional(),
 })
 
 export const WhatsappPayloadSchema = z.object({
     to: z.string().min(5, 'Phone number must be at least 5 digits'),
-    templateName: z.string().min(1, 'template name is required'),
-    parameters: z.record(z.string(), z.string()).optional()
+    templateName: z.string().optional(),
+    templateId: z.string().optional(),
+    variables: z.record(z.string(), z.any()).optional(),
+    body: z.string().optional()
 })
 
 // Discriminated Union: Validates the payload on the basis of channel
