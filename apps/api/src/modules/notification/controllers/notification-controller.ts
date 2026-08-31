@@ -30,14 +30,17 @@ export async function sendNotificationHandler(request: FastifyRequest, reply: Fa
             })
         }
 
+        // idempotency key
+        const idempotencyKey = (request.headers['idempotency-key'] || request.headers['x-idempotency-key']) as string | undefined
 
-        const result = await notificationService.sendNotification(parseResult.data);
+        const result = await notificationService.sendNotification(parseResult.data, idempotencyKey);
 
         // 202 for accepted
         return reply.status(202).send({
             success: true,
-            message: 'Notification queued successfully',
-            notificationId: result.id
+            message: result.isDuplicate ? 'Duplicate request acknowledged(already queued)' : 'Notification queued successfully',
+            notificationId: result.id,
+            isDuplicate: result.isDuplicate
         })
     } catch (error) {
         request.log.error(error);

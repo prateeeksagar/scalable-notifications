@@ -8,9 +8,10 @@
     "dev": "tsx --watch src/index.ts"
   },
   "dependencies": {
-    "@project/db": "workspace:*",
     "@project/broker": "workspace:*",
+    "@project/db": "workspace:*",
     "@project/shared-types": "workspace:*",
+    "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.1"
   },
   "devDependencies": {
