@@ -31,8 +31,8 @@ const worker = new Worker(NOTIFICATION_QUEUE_NAME, async (job) => {
         }
 
         // dispatch by provider factory
-        const provider = ProviderFactory.getProvider(channel)
-        const result = await provider.send(finalPayload);
+        const result = await ProviderFactory.dispatch(channel, finalPayload)
+        // const result = await provider.send(finalPayload);
         if (!result.success) {
             throw new Error(result.error || 'Provider failed to send');
         }
