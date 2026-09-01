@@ -52,7 +52,9 @@ export async function replayDeadLetterHandler(request: FastifyRequest<{ Params: 
         })
 
         // update status back to QUEUED
-        await db.update(notifications).set({ status: 'QUEUED', failedReason: null, updatedAt: new Date() })
+        await db.update(notifications)
+            .set({ status: 'QUEUED', failedReason: null, updatedAt: new Date() })
+            .where(eq(notifications.id, id));
 
         return reply.status(200).send({
             success: true,

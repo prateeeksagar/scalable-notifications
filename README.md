@@ -2,7 +2,7 @@
 
 A high-throughput, event-driven notification engine built with TypeScript, Fastify, BullMQ, Redis, PostgreSQL, and Drizzle ORM inside a Turborepo monorepo.
 
-Designed to decouple notification ingestion from third-party delivery services, ensuring sub-15ms API response times, zero duplicate sends, dynamic template compilation, and resilient multi-channel dispatching.
+Designed to decouple notification ingestion from third-party delivery services, ensuring sub-15ms API response times, zero duplicate sends, dynamic template compilation, resilient multi-channel dispatching, and automated Dead Letter Queue (DLQ) failure recovery.
 
 ---
 
@@ -15,33 +15,47 @@ Designed to decouple notification ingestion from third-party delivery services, 
               v
      +-----------------+
      |    apps/api     |
-     | (Fastify HTTP)  |
-     +--------+--------+
-              |
-              |-- 1. Check Redis Cache & Atomic Insert into PostgreSQL ('QUEUED')
-              |-- 2. Enqueue Job to BullMQ with Priority Weight
-              |-- 3. Return 202 Accepted (< 15ms)
-              v
-     +-----------------+
-     |  Redis (BullMQ) |
-     | (Sorted Queue)  |
-     +--------+--------+
-              |
-              | Asynchronous Job Pickup
-              v
-     +-----------------+
-     |  apps/workers   |
-     | (Worker Engine) |
-     +--------+--------+
-              |
-              |-- 1. Fetch & Render Template (Mustache Interpolation)
-              |-- 2. Route to Provider via ProviderFactory (Email / SMS / WhatsApp / In-App)
-              |-- 3. Update PostgreSQL Record Status ('SENT' / 'FAILED')
-              v
-   +-----------------------------------------------------------+
-   |                    packages/providers                     |
-   |   [ Email (Resend/Mock) ]  [ SMS ]  [ WhatsApp ]  [ In-App ] |
-   +-----------------------------------------------------------+
+     | (Fastify HTTP)  |<---------------------------------------------------+
+     +--------+--------+                                                    |
+              |                                                             |
+              |-- 1. Check Redis Cache & Atomic Insert to Postgres ('QUEUED') |
+              |-- 2. Enqueue Job to BullMQ with Priority Weight             |
+              |-- 3. Return 202 Accepted (< 15ms)                           |
+              v                                                             |
+     +-----------------+                                                    |
+     |  Redis (BullMQ) |                                                    |
+     | (notifications) |                                                    |
+     +--------+--------+                                                    |
+              |                                                             |
+              | Asynchronous Job Pickup (concurrency: 10)                   |
+              v                                                             |
+     +-----------------+                                                    |
+     |  apps/workers   |                                                    |
+     | (Worker Engine) |                                                    |
+     +--------+--------+                                                    |
+              |                                                             |
+              |-- 1. Fetch & Render Template (Mustache Interpolation)       |
+              |-- 2. Dispatch via Provider Chain (Primary -> Fallback)      |
+              |                                                             |
+      +-------+-------+                                                     |
+      |               |                                                     |
+  [Success]       [Failed all 3 retries]                                    |
+      |               |                                                     |
+      v               v                                                     |
++-----------+   +-------------------+                                       |
+| Postgres  |   |   Redis (BullMQ)  |                                       |
+|  ('SENT') |   | (notifications-dlq|                                       |
++-----------+   +---------+---------+                                       |
+                          |                                                 |
+                          | Terminal failure stored with error stack trace  |
+                          v                                                 |
+                +-------------------+                                       |
+                | Postgres Audit DB |                                       |
+                |  ('DEAD_LETTER')  |                                       |
+                +---------+---------+                                       |
+                          |                                                 |
+                          | Manual / Automated Replay Endpoint              |
+                          +--- POST /api/v1/dlq/replay/:id -----------------+
 ```
 
 ---
@@ -52,28 +66,29 @@ Designed to decouple notification ingestion from third-party delivery services, 
 - Ingestion API immediately enqueues messages to Redis and responds with `202 Accepted` and a `notificationId`.
 - Completely isolates client-facing APIs from third-party vendor latencies (Resend, Twilio, SendGrid) and downstream network outages.
 
-### 2. Multi-Channel Notification Support
-- First-class support for **Email**, **SMS**, **WhatsApp**, and **In-App** channels.
-- Pluggable Adapter Pattern via `ProviderFactory`: new channels and third-party vendors can be added without altering worker or API logic.
+### 2. Multi-Channel Support with Provider Failover
+- Unified provider interface for **Email**, **SMS**, **WhatsApp**, and **In-App** channels.
+- **Failover Chains**: Automatically falls back to secondary providers if the primary provider (e.g. Resend) encounters upstream errors or network timeouts, guaranteeing maximum delivery reliability.
 
-### 3. Distributed Idempotency and Deduplication
+### 3. Dead Letter Queue (DLQ) and Replay Engine
+- When a notification exhausts all 3 exponential backoff retries, it is automatically routed to a dedicated `notifications-dlq` queue.
+- Updates PostgreSQL record to `DEAD_LETTER` with the exact error message and timestamp.
+- Provides a dedicated Replay API (`POST /api/v1/dlq/replay/:id`) to re-inject failed messages into the active queue once the issue is resolved.
+
+### 4. Distributed Idempotency and Deduplication
 - Two-tier idempotency system:
   - **Tier 1 (Redis Cache)**: Sub-millisecond in-memory cache check for `Idempotency-Key` headers with a 24-hour TTL.
   - **Tier 2 (PostgreSQL Atomic Safety)**: Unique constraint on `idempotency_key` using `ON CONFLICT DO NOTHING` to eliminate race conditions during concurrent simultaneous requests.
 - Prevents duplicate charges, duplicate OTPs, and redundant emails on client retries.
 
-### 4. Dynamic Template Engine
+### 5. Dynamic Template Engine
 - Database-backed template storage (`templates` table) with natural slug identifiers (`templateId`).
 - Embedded Mustache compilation engine supporting dynamic variable interpolation across subjects, message bodies, titles, and action URLs.
 - Automatic variable validation and fallback mechanisms.
 
-### 5. Multi-Level Priority Queueing
+### 6. Multi-Level Priority Queueing
 - Numeric weighted priority scheduling in BullMQ (`CRITICAL` = 1, `HIGH` = 2, `NORMAL` = 3, `LOW` = 4).
 - Critical transactional alerts (OTPs, 2FA, password resets) automatically bypass large backlogs of marketing or bulk campaigns in the queue.
-
-### 6. Automatic Retries and Exponential Backoff
-- Failed jobs are retried up to 3 times with exponential backoff (`delay: 1000ms * 2^attempt`) to handle transient network glitches.
-- Statuses in PostgreSQL transition through a clear audit lifecycle (`QUEUED` -> `SENT` -> `FAILED`).
 
 ### 7. End-to-End Type Safety and Schema Validation
 - Strict validation at the API layer using Zod Discriminated Unions.
@@ -86,13 +101,13 @@ Designed to decouple notification ingestion from third-party delivery services, 
 ```
 .
 ├── apps/
-│   ├── api/                # Fastify REST API for notification ingestion & queries
-│   └── workers/            # BullMQ background worker consumers and template processors
+│   ├── api/                # Fastify REST API for notification ingestion, queries, and DLQ
+│   └── workers/            # BullMQ background worker consumers, DLQ routers, and processors
 │
 ├── packages/
-│   ├── broker/             # BullMQ queue definitions and Redis client wrapper
+│   ├── broker/             # BullMQ queue definitions (main & DLQ) and Redis connection
 │   ├── db/                 # Drizzle ORM schemas, PostgreSQL connection, and migrations
-│   ├── providers/          # Multi-channel delivery providers & ProviderFactory registry
+│   ├── providers/          # Multi-channel delivery providers & ProviderFactory failover registry
 │   └── shared-types/       # Canonical TypeScript types and Zod validation schemas
 │
 ├── pnpm-workspace.yaml     # pnpm workspace configuration
@@ -181,6 +196,47 @@ GET /api/v1/notification
 
 ---
 
+### 3. Dead Letter Queue (DLQ) Management
+
+#### A. List Dead Letters
+```http
+GET /api/v1/dlq
+```
+
+#### Response (200 OK):
+```json
+{
+  "success": true,
+  "count": 1,
+  "data": [
+    {
+      "id": "2a418c49-5818-441e-aee3-ec9d3e9a1363",
+      "channel": "EMAIL",
+      "status": "DEAD_LETTER",
+      "failedReason": "All providers for channel EMAIL failed. Last error: API Key Invalid",
+      "payload": { ... },
+      "createdAt": "2026-09-01T12:00:00.000Z",
+      "updatedAt": "2026-09-01T12:00:05.120Z"
+    }
+  ]
+}
+```
+
+#### B. Replay Dead-Lettered Notification
+```http
+POST /api/v1/dlq/replay/:id
+```
+
+#### Response (200 OK):
+```json
+{
+  "success": true,
+  "message": "Notification 2a418c49-5818-441e-aee3-ec9d3e9a1363 re-requested successfully for processing"
+}
+```
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -202,6 +258,7 @@ Create a `.env` file in the project root:
 ```env
 POSTGRESQL='postgresql://user:password@localhost:5432/notification_db'
 REDIS_URL='redis://default:password@localhost:6379'
+RESEND_API='re_your_resend_api_key'
 PORT=3000
 ```
 
@@ -222,7 +279,7 @@ pnpm run dev:workers
 ```
 
 ### 5. Launch Drizzle Studio (Optional UI)
-To visually inspect and manage database tables and templates:
+To visually inspect and manage database tables, dead letters, and templates:
 ```bash
 pnpm --filter @project/db db:studio
 ```
@@ -235,6 +292,7 @@ pnpm --filter @project/db db:studio
 - **API Framework**: Fastify
 - **Message Broker & Queue**: BullMQ, Redis (ioredis)
 - **Database & ORM**: PostgreSQL, Drizzle ORM
+- **Email Delivery**: Resend SDK (with Provider Failover)
 - **Validation**: Zod (Discriminated Unions)
 - **Template Engine**: Mustache
 - **Monorepo Tooling**: Turborepo, pnpm
