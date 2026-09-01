@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { NOTIFICATION_QUEUE_NAME, Worker, connection } from "@project/broker";
+import { NOTIFICATION_QUEUE_NAME, Worker, connection, notificationDLQ } from "@project/broker";
 import { db, notifications, templates } from "@project/db";
 import { eq } from "drizzle-orm";
 import { ProviderFactory } from '@project/providers'
@@ -51,6 +51,42 @@ const worker = new Worker(NOTIFICATION_QUEUE_NAME, async (job) => {
     }
 }, { connection })
 
-worker.on('failed', (job, err) => {
+worker.on('failed', async (job, err) => {
+    if (!job) return;
+
+    const maxAttempts = job.opts.attempts || 3;
+    const isTerminal = job.attemptsMade >= maxAttempts
+
+    console.warn(`[Job ${job.id}] ⚠️ Attempt ${job.attemptsMade}/${maxAttempts} failed: ${err.message}`);
     console.error(`Job ${job?.id} failed with error: ${err.message}`);
+
+    if (isTerminal) {
+        console.error(`DLQ Routing`);
+
+        try {
+
+            await notificationDLQ.add('dead-letter', {
+                originalJob: job.id,
+                notificationId: job.data.notificationId,
+                channel: job.data.channel,
+                priority: job.data.priority,
+                payload: job.data.payload,
+                failedReason: err.message,
+                failedAt: new Date().toISOString(),
+                attemptsMade: job.attemptsMade
+            })
+
+            // update postgresql status to DEAD LETTER
+            await db.update(notifications).set({
+                status: 'DEAD_LETTER',
+                failedReason: err.message,
+                updatedAt: new Date()
+            }).where(eq(notifications.id, job.data.notificationId));
+
+            console.log('notification successfully moved to DQL')
+        } catch (error) {
+            console.log('failed to move to DLQ')
+        }
+
+    }
 });

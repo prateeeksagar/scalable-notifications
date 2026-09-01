@@ -12,6 +12,7 @@ export class ResendEmailProvider implements INotificationProvider<'EMAIL'> {
     constructor(apiKey?: string) {
         this.resend = new Resend(apiKey || process.env.RESEND_API || '')
     }
+
     async send(payload: EmailPayload): Promise<NormalizeResponse> {
         console.log('RESEND API sending email')
         try {
