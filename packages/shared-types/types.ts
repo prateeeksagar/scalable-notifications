@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+export const NotificationPrioritySchema = z.enum(['CRITICAL', 'HIGH', 'NORMAL', 'LOW']).default('NORMAL');
+export type NotificationPriority = z.infer<typeof NotificationPrioritySchema>;
+
+export const PriorityWeights: Record<NotificationPriority, number> = {
+    'CRITICAL': 1, //HIGHEST (Immediate)
+    'HIGH': 2,
+    'NORMAL': 3, // DEFAULT
+    'LOW': 4  // BULK
+}
+
 export const EmailPayloadSchema = z.object({
     to: z.email('Invalid email format'),
     subject: z.string().optional(),
@@ -39,10 +49,10 @@ export const WhatsappPayloadSchema = z.object({
 
 // Discriminated Union: Validates the payload on the basis of channel
 export const SendNotificationSchema = z.discriminatedUnion('channel', [
-    z.object({ channel: z.literal('EMAIL'), payload: EmailPayloadSchema }),
-    z.object({ channel: z.literal('SMS'), payload: SmsPayloadSchema }),
-    z.object({ channel: z.literal('IN-APP'), payload: InAppPayloadScheme }),
-    z.object({ channel: z.literal('WHATSAPP'), payload: WhatsappPayloadSchema })
+    z.object({ channel: z.literal('EMAIL'), payload: EmailPayloadSchema, priority: NotificationPrioritySchema.optional() }),
+    z.object({ channel: z.literal('SMS'), payload: SmsPayloadSchema, priority: NotificationPrioritySchema.optional() }),
+    z.object({ channel: z.literal('IN-APP'), payload: InAppPayloadScheme, priority: NotificationPrioritySchema.optional() }),
+    z.object({ channel: z.literal('WHATSAPP'), payload: WhatsappPayloadSchema, priority: NotificationPrioritySchema.optional() })
 ])
 
 // infer typescript types from zod automatically
@@ -70,9 +80,4 @@ export type NotificationChannel = SendNotificationDTO['channel']
 
 
 // discriminated union for API Ingestion
-export type NotificationRequest = {
-    [K in NotificationChannel]: {
-        channel: K;
-        payload: ChannelPayloadMap[K];
-    }
-}[NotificationChannel];
+export type NotificationRequest = SendNotificationDTO;

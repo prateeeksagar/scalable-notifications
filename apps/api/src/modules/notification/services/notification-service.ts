@@ -1,6 +1,6 @@
 import { db, notifications } from "@project/db";
 import { notificationQueue, connection } from '@project/broker'
-import { NotificationRequest } from "@project/shared-types";
+import { NotificationRequest, PriorityWeights } from "@project/shared-types";
 import { eq } from 'drizzle-orm'
 
 
@@ -15,6 +15,10 @@ export class NotificationService {
 
     async sendNotification(input: NotificationRequest, idempotencyKey?: string | undefined) {
         try {
+            const priorityLevel = input.priority || 'NORMAL';
+            const PriorityWeight = PriorityWeights[priorityLevel]
+
+
 
             if (idempotencyKey) {
                 const cached = await connection.get(`idempotency:${idempotencyKey}`);
@@ -37,13 +41,14 @@ export class NotificationService {
                 channel: input.channel,
                 idempotencyKey: idempotencyKey || null,
                 status: "QUEUED",
+                priority: priorityLevel,
                 payload: input.payload
             }).onConflictDoNothing({ target: notifications.idempotencyKey }).returning()
 
 
             if (!saved && idempotencyKey) {
                 const [existing] = await db.select().from(notifications).where(eq(notifications.idempotencyKey, idempotencyKey));
-                return { existing, isDuplicate: true }
+                return { ...existing, isDuplicate: true }
             }
 
             // 2. push job into bullmq
@@ -53,6 +58,7 @@ export class NotificationService {
                 payload: input.payload
             }, {
                 jobId: saved.id,
+                priority: PriorityWeight,
                 attempts: 3,
                 backoff: { type: 'exponential', delay: 1000 }
             })
@@ -61,7 +67,7 @@ export class NotificationService {
                 await connection.set(`idempotency:${idempotencyKey}`, JSON.stringify(saved), 'EX', 86400);
             }
 
-            return { saved, isDuplicate: false };
+            return { ...saved, isDuplicate: false };
 
         } catch (error) {
             console.log("This is the error---------", error)

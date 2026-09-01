@@ -9,6 +9,7 @@ export const notifications = pgTable('notifications', {
     channel: varchar('channel', { length: 30 }).notNull(),
     status: varchar('status', { length: 30 }).notNull().default('QUEUED'),
     payload: jsonb('payload').notNull(),
+    priority: varchar('priority', { length: 30 }).default('NORMAL').notNull(),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
     updatedAt: timestamp('updatedAt').defaultNow().notNull()
 })
