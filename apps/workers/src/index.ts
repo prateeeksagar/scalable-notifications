@@ -39,7 +39,7 @@ const worker = new Worker(NOTIFICATION_QUEUE_NAME, async (job) => {
 
 
         // update DB for 'SENT'
-        await db.update(notifications).set({ status: 'SENT', updatedAt: new Date() }).where(eq(notifications.id, notificationId));
+        await db.update(notifications).set({ status: 'SENT', updatedAt: new Date(), providerMessageId: result.providerMessageId || null }).where(eq(notifications.id, notificationId));
 
         console.log(`Notification ${notificationId} marked as SENT`);
 

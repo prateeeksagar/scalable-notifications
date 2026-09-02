@@ -9,6 +9,7 @@ export const notifications = pgTable('notifications', {
     channel: varchar('channel', { length: 30 }).notNull(),
     status: varchar('status', { length: 30 }).notNull().default('QUEUED'), // QUEUE | SENT | FAILED | DEAD_LETTER
     failedReason: text('failed_reason'), // stores error
+    providerMessageId: varchar('provider_message_id', { length: 255 }), // store provider email_id
     payload: jsonb('payload').notNull(),
     priority: varchar('priority', { length: 30 }).default('NORMAL').notNull(),
     createdAt: timestamp('createdAt').defaultNow().notNull(),
