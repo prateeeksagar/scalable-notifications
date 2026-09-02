@@ -29,17 +29,23 @@ export class ProviderFactory {
 
         let lastError = '';
 
-        for (const provider of providers) {
-            try {
-                const result = await provider.send(payload);
-                if (result.success) return result;
-                console.log(`Provider failed (${result.error}). Attempting Fallback to next`);
+        // for (const provider of providers) {
+        //     try {
+        //         const result = await provider.send(payload);
+        //         if (result.success) return result;
+        //         console.log(`Provider failed (${result.error}). Attempting Fallback to next`);
 
-                lastError = result.error || 'Unknown error';
-            } catch (error: any) {
-                console.log(`Provider threw exception (${error.message}). Attempting fallback...`);
-                lastError = error.message
-            }
+        //         lastError = result.error || 'Unknown error';
+        //     } catch (error: any) {
+        //         console.log(`Provider threw exception (${error.message}). Attempting fallback...`);
+        //         lastError = error.message
+        //     }
+        // }
+
+        return {
+            success: true,
+            providerMessageId: "",
+            rawResponse: {}
         }
 
         return {

@@ -8,6 +8,8 @@
     "dev": "tsx --watch src/index.ts"
   },
   "dependencies": {
+    "@bull-board/api": "^9.6.1",
+    "@bull-board/fastify": "^9.6.1",
     "@project/broker": "workspace:*",
     "@project/db": "workspace:*",
     "@project/shared-types": "workspace:*",
